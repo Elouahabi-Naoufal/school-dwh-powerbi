@@ -1,438 +1,316 @@
-# Projet Final — Système d'Information Décisionnel
-### Data Warehouse & Dashboard Power BI — École
+<a id="readme-top"></a>
 
----
+[![Contributors][contributors-shield]][contributors-url]
+[![Forks][forks-shield]][forks-url]
+[![Stargazers][stars-shield]][stars-url]
+[![Issues][issues-shield]][issues-url]
+[![LinkedIn][linkedin-shield]][linkedin-url]
 
-## Vue d'ensemble
+<br />
+<div align="center">
+  <a href="https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi">
+    <h3 align="center">School Data Warehouse and Power BI</h3>
+  </a>
 
-Ce projet construit un système décisionnel complet pour piloter les performances d'une école, de la donnée brute Excel jusqu'à un tableau de bord Power BI interactif en 10 pages.
+  <p align="center">
+    A decision-support warehouse for a school: 27 source tables, a dbt project on Snowflake, and a Power BI reporting layer.
+    <br />
+    <a href="https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi"><strong>Explore the repository »</strong></a>
+    <br />
+    <br />
+    <a href="https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi/issues/new?labels=bug">Report Bug</a>
+    &middot;
+    <a href="https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi/issues/new?labels=enhancement">Request Feature</a>
+  </p>
+</div>
 
-**Pipeline :**
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#about-the-project">About The Project</a>
+      <ul>
+        <li><a href="#data-flow">Data flow</a></li>
+        <li><a href="#repository-layout">Repository layout</a></li>
+        <li><a href="#built-with">Built With</a></li>
+      </ul>
+    </li>
+    <li><a href="#getting-started">Getting Started</a>
+      <ul>
+        <li><a href="#prerequisites">Prerequisites</a></li>
+        <li><a href="#installation">Installation</a></li>
+      </ul>
+    </li>
+    <li><a href="#usage">Usage</a></li>
+    <li><a href="#roadmap">Roadmap</a></li>
+    <li><a href="#contributing">Contributing</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#contact">Contact</a></li>
+    <li><a href="#acknowledgments">Acknowledgments</a></li>
+  </ol>
+</details>
+
+## About The Project
+
+This project builds a decision-support system for a school, from raw operational extracts to
+analytical marts. The source model covers students, enrolments, modules, grades, attendance,
+teaching staff, finance, student life, satisfaction surveys, professional integration and
+administrative activity — 27 tables in total.
+
+The repository has three working parts:
+
+* a Colab notebook that profiles and cleans the source workbook;
+* a Python loader that writes the CSV extracts into `DW_ECOLE.RAW` on Snowflake;
+* a dbt project (`dw_ecole`) with 26 staging views and ten analytical marts built on top of that
+  raw schema.
+
+The Power BI report consumes the marts. The `.pbix` file itself is not committed in this
+repository; what is committed is the warehouse and the model documentation it is meant to feed.
+
+### Data flow
+
+```text
+Excel workbook (27 sheets)
+        |
+        v
+notebooks/01_EDA_and_Cleaning.ipynb     profiling, cleaning, feature checks
+        |
+        v
+data/csv/*.csv (27 files)
+        |
+        v
+scripts/upload_to_snowflake.py          -> Snowflake DW_ECOLE.RAW
+        |
+        v
+dbt dw_ecole
+  staging/      26 views                 -> STAGING schema
+  mart_*/       fact + dimension tables  -> one schema per mart
+        |
+        v
+Power BI report (not included in this repository)
 ```
-Excel brut (27 feuilles)
-    → Notebook : EDA + nettoyage + export Excel propre
-    → Script Python : chargement dans Snowflake RAW (27 tables, ~21 000 lignes)
-    → dbt staging : 26 vues de nettoyage
-    → dbt marts : 10 data marts, 45 tables
-    → Power BI : 10 pages de dashboard
-```
 
-**Stack :** Python · Snowflake · dbt · Power BI
+The marts are: inscriptions, academic performance, graduation and professional integration,
+teachers, administration, student workload, student life, finance, satisfaction, and an executive
+KPI summary.
 
----
+### Repository layout
 
-## Structure du projet
-
-```
-Projet_final/
-├── README_PROJET.md                        ← ce fichier
-├── Dataset_PowerBI_Ecole_CLEAN.xlsx        ← Excel nettoyé (sorti du notebook)
-├── KPI_pages_Dashboard PowerBI.pdf         ← maquettes des pages
-│
-├── data/
-│   ├── Dataset_PowerBI_Ecole_not_cleaned.xlsx  ← fichier brut original
-│   └── csv/                                    ← 27 CSV exportés depuis l'Excel
-│
+```text
+.
+├── data/csv/                 # 27 CSV extracts of the source workbook
 ├── notebooks/
-│   └── 01_EDA_and_Cleaning.ipynb           ← Google Colab : EDA + nettoyage
-│
+│   └── 01_EDA_and_Cleaning.ipynb
 ├── scripts/
-│   └── upload_to_snowflake.py              ← chargement CSV → Snowflake RAW
-│
-├── dw_ecole/                               ← projet dbt
+│   └── upload_to_snowflake.py
+├── dw_ecole/                 # dbt project
 │   ├── dbt_project.yml
-│   ├── profiles.yml
+│   ├── packages.yml          # dbt-labs/dbt_utils
 │   └── models/
-│       ├── sources.yml
-│       ├── staging/                        ← 26 vues
-│       └── mart_*/                         ← 10 marts
-│
+│       ├── sources.yml       # DW_ECOLE.RAW source declarations
+│       ├── staging/          # 26 staging views
+│       └── mart_*/           # fact and dimension models
+├── dbt_files/                # early single-mart draft (inscriptions only)
 └── docs/
-    ├── Schema_Source.md                    ← schéma des 27 tables sources
-    └── Tables_Schema_of_Marts.md           ← schéma colonne par colonne des marts
+    ├── Schema_Source.md      # source tables, column by column
+    └── Tables_Schema_of_Marts.md
 ```
 
----
+`dbt_files/` is an earlier draft kept for reference; the maintained project is `dw_ecole/`.
 
-## Étape 0 — Notebook : EDA & Nettoyage
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-**Fichier :** `notebooks/01_EDA_and_Cleaning.ipynb` (Google Colab)  
-**Entrée :** `data/Dataset_PowerBI_Ecole_not_cleaned.xlsx`  
-**Sortie :** `Dataset_PowerBI_Ecole_CLEAN.xlsx`
+### Built With
 
-Le notebook réalise l'exploration et le nettoyage des données avant de les passer dans le pipeline Snowflake/dbt.
+* [![Python][Python-badge]][Python-url]
+* [![Snowflake][Snowflake-badge]][Snowflake-url]
+* [![dbt][dbt-badge]][dbt-url]
+* [![Power BI][PowerBI-badge]][PowerBI-url]
+* [![pandas][pandas-badge]][pandas-url]
+* [![Jupyter][Jupyter-badge]][Jupyter-url]
+* [![SQL][SQL-badge]][SQL-url]
 
-### Chargement de toutes les feuilles
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-```python
-xl = pd.ExcelFile(FILE_BYTES)
-SHEETS = [s for s in xl.sheet_names if s.upper() != 'README']
+## Getting Started
 
-tables = {}
-for sheet in SHEETS:
-    FILE_BYTES.seek(0)
-    tables[sheet] = pd.read_excel(FILE_BYTES, sheet_name=sheet)
+### Prerequisites
+
+* Python 3.9+ and `pip`
+* A Snowflake account with a warehouse, database and schema you can write to
+* dbt with the Snowflake adapter
+  ```sh
+  pip install dbt-snowflake
+  ```
+* Power BI Desktop if you want to rebuild the report
+
+### Installation
+
+1. Clone the repo
+   ```sh
+   git clone https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi.git
+   cd school-data-warehouse-powerbi
+   ```
+
+2. Install the Python dependencies used by the notebook and the loader
+   ```sh
+   python -m venv .venv
+   source .venv/bin/activate
+   pip install pandas numpy matplotlib seaborn scipy missingno openpyxl snowflake-connector-python
+   ```
+
+3. Create a dbt profile named `dw_ecole` (the project expects it in `dbt_project.yml`). The
+   repository does not ship a `profiles.yml`; keep yours outside version control.
+   ```yaml
+   dw_ecole:
+     target: dev
+     outputs:
+       dev:
+         type: snowflake
+         account: <your-account>
+         user: <your-user>
+         password: <your-password>
+         role: <your-role>
+         database: DW_ECOLE
+         warehouse: <your-warehouse>
+         schema: RAW
+   ```
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Usage
+
+### 1. Profile and clean the source data
+
+Open `notebooks/01_EDA_and_Cleaning.ipynb` in Jupyter or Google Colab. The first cells upload the
+source workbook, then the notebook inspects every sheet, checks missing values and duplicates,
+and prepares the extracts used downstream. The notebook was written for Colab; when running it
+locally, replace the `google.colab` upload cell with a local path.
+
+### 2. Load the CSV extracts into Snowflake
+
+The loader creates `DW_ECOLE.RAW` if needed and writes every CSV with `write_pandas`, replacing
+existing tables.
+
+Note that `scripts/upload_to_snowflake.py` currently resolves its input as a `csv/` directory next
+to the script, while the CSVs in this repository live in `data/csv/`. Either copy the files or
+adjust `CSV_DIR` before running:
+
+```sh
+mkdir -p scripts/csv
+cp data/csv/*.csv scripts/csv/
+python scripts/upload_to_snowflake.py
 ```
 
-### Contrôles qualité
+The connection settings are currently hardcoded in the script. Move them to environment variables
+or a local, untracked configuration file before using this against a real account.
 
-```python
-# Notes hors plage [0, 20]
-notes_hors_plage = df_n[(df_n['note'] < 0) | (df_n['note'] > 20)]
+### 3. Build the warehouse with dbt
 
-# Somme des poids de satisfaction ≠ 1
-df_sat['sum_poids'] = df_sat[poids_cols].sum(axis=1)
-poids_wrong = df_sat[(df_sat['sum_poids'] < 0.98) | (df_sat['sum_poids'] > 1.02)]
-
-# Séances avec heure_debut >= heure_fin
-seances_incoherentes = df_s[df_s['heure_debut'] >= df_s['heure_fin']]
-```
-
-### Nettoyage & features dérivés (exemples clés)
-
-```python
-# ETUDIANT — dates, âge, uniformisation genre
-e['date_naissance'] = pd.to_datetime(e['date_naissance'], errors='coerce')
-e['age'] = (pd.Timestamp.now() - e['date_naissance']).dt.days // 365
-e['sexe'] = e['sexe'].str.upper().str.strip().map({'M':'M','F':'F','MASCULIN':'M','FEMININ':'F'})
-
-# NOTE — clipping + flag admis
-n['note'] = n['note'].clip(0, 20)
-n['admis_bool'] = (n['resultat'] == 'Admis').astype(int)
-
-# SEANCE_COURS — durée calculée
-sc['duree_minutes'] = (sc['heure_fin_dt'] - sc['heure_debut_dt']).dt.total_seconds() / 60
-
-# SATISFACTION — normalisation des poids à 1
-for col in poids_cols:
-    s[col] = s[col] / s['sum_poids']
-s['score_prof_pondere'] = (s['score_clarte'] * s['poids_clarte']
-                          + s['score_disponibilite'] * s['poids_disponibilite']
-                          + s['score_pedagogie'] * s['poids_pedagogie']
-                          + s['score_equite'] * s['poids_equite'])
-
-# INSERTION — délai emploi
-ins_pro['delai_emploi_jours'] = (ins_pro['date_premier_emploi'] - ins_pro['date_diplome']).dt.days
-taux_emploi_6m = (ins_pro['delai_emploi_jours'] <= 180).mean() * 100
-
-# FRAIS SCOLARITÉ — taux recouvrement
-f['montant_paye'] = f['montant_paye'].clip(upper=f['montant_du'])
-f['taux_recouvrement'] = f['montant_paye'] / f['montant_du']
-
-# DEMANDE ADMIN — délai traitement
-d['delai_jours'] = (d['date_resolution'] - d['date_soumission']).dt.days.clip(lower=0)
-```
-
-### Export
-
-```python
-with pd.ExcelWriter('Dataset_PowerBI_Ecole_CLEAN.xlsx', engine='openpyxl') as writer:
-    for name, df in clean.items():
-        df.to_excel(writer, sheet_name=name[:31], index=False)
-    kpis.to_excel(writer, sheet_name='KPIs_Synthese', index=False)
-```
-
----
-
-## Étape 1 — Chargement dans Snowflake
-
-**Fichier :** `scripts/upload_to_snowflake.py`
-
-Ce script lit chaque CSV du dossier `data/csv/` et le charge dans le schéma `DW_ECOLE.RAW` de Snowflake.
-
-```python
-conn = snowflake.connector.connect(
-    account="YFQOTUU-OX87105", user="SECONDNAOUFALSCHOL", password="...",
-    role="ACCOUNTADMIN", warehouse="COMPUTE_WH", database="DW_ECOLE", schema="RAW"
-)
-
-for fname in sorted(os.listdir(CSV_DIR)):
-    if not fname.endswith(".csv"):
-        continue
-    table = fname.replace(".csv", "")
-    df = pd.read_csv(os.path.join(CSV_DIR, fname))
-    df.columns = [c.upper() for c in df.columns]
-    success, _, nrows, _ = write_pandas(conn, df, table, auto_create_table=True, overwrite=True)
-    print(f"{'✓' if success else '✗'} {table} ({nrows} rows)")
-```
-
-**Résultat :** 27 tables dans `DW_ECOLE.RAW`, ~21 000 lignes au total.
-
-**Exécution :**
-```bash
-source dbt_env/bin/activate
-python3 scripts/upload_to_snowflake.py
-```
-
----
-
-## Étape 2 — Transformations dbt
-
-**Dossier :** `dw_ecole/`
-
-### Configuration du projet (`dbt_project.yml`)
-
-```yaml
-name: 'dw_ecole'
-profile: 'dw_ecole'
-
-models:
-  dw_ecole:
-    staging:
-      +schema: STAGING
-      +materialized: view        # vues légères, calculées à la volée
-    mart_inscriptions:
-      +schema: MART_INSCRIPTIONS
-      +materialized: table       # tables physiques, optimisées pour Power BI
-    mart_performance_academique:
-      +schema: MART_PERFORMANCE_ACADEMIQUE
-      +materialized: table
-    # ... (même pattern pour les 8 autres marts)
-```
-
-La couche **staging** est matérialisée en **views** (pas de stockage, nettoyage à la volée).  
-Les **marts** sont matérialisés en **tables** (stockage physique, lecture rapide pour Power BI).
-
-### Couche Staging — Nettoyage SQL
-
-Les staging views standardisent les données brutes. Exemples des deux plus importantes :
-
-**`stg_etudiant.sql`** — cast des types, normalisation texte, conversion booléen :
-```sql
-with source as (select * from {{ source('raw', 'ETUDIANT') }})
-select
-    cast(ID_ETUDIANT as integer)                                    as id_etudiant,
-    trim(upper(NOM))                                                as nom,
-    trim(initcap(PRENOM))                                           as prenom,
-    trim(upper(SEXE))                                               as sexe,
-    try_cast(DATE_NAISSANCE as date)                                as date_naissance,
-    case when upper(BOURSIER) in ('OUI','TRUE','1') then true else false end as boursier,
-    try_cast(DATE_INSCRIPTION as date)                              as date_inscription,
-    trim(STATUT)                                                    as statut,
-    trim(FILIERE)                                                   as filiere,
-    trim(NIVEAU_ACTUEL)                                             as niveau_actuel
-from source
-where ID_ETUDIANT is not null
-```
-
-**`stg_note.sql`** — cast simple, filtre null :
-```sql
-with source as (select * from {{ source('raw', 'NOTE') }})
-select
-    cast(ID_NOTE as integer)     as id_note,
-    cast(ID_ETUDIANT as integer) as id_etudiant,
-    cast(ID_MODULE as integer)   as id_module,
-    trim(ANNEE_UNIVERSITAIRE)    as annee_universitaire,
-    cast(NOTE as float)          as note,
-    trim(MENTION)                as mention,
-    trim(SESSION)                as session,
-    trim(RESULTAT)               as resultat
-from source
-where ID_NOTE is not null
-```
-
-### Couche Marts — Modèle en étoile
-
-Chaque mart suit le schéma en étoile : une ou plusieurs tables de **faits** (mesures) entourées de **dimensions** (référentiels). Voici les tables de faits les plus importantes :
-
----
-
-**`mart_inscriptions/fact_inscription.sql`** — calcule les flags métier (nouveau, réinscrit, abandon) :
-```sql
-{{ config(materialized='table', schema='MART_INSCRIPTIONS') }}
-
-with i as (select * from {{ ref('stg_inscription') }}),
-     e as (select id_etudiant, statut from {{ ref('stg_etudiant') }}),
-     ranked as (
-         select *, row_number() over (partition by id_etudiant order by date_inscription) as rang
-         from i
-     )
-select
-    r.id_inscription, r.id_etudiant, r.annee_universitaire,
-    r.type_inscription, r.date_inscription, r.filiere, r.niveau,
-    case when r.rang = 1 then true else false end                       as is_nouvel_inscrit,
-    case when r.type_inscription = 'Réinscrit' then true else false end as is_reinscrit,
-    case when e.statut = 'Abandon' then true else false end             as is_abandon,
-    case when e.statut = 'Actif' then true else false end               as is_actif,
-    case when e.statut = 'Diplômé' then true else false end             as is_diplome,
-    left(r.annee_universitaire, 4)::integer                            as annee_debut
-from ranked r
-left join e on r.id_etudiant = e.id_etudiant
-```
-
----
-
-**`mart_performance_academique/fact_note.sql`** — calcule taux de réussite/échec par module et flag modules à risque :
-```sql
-{{ config(materialized='table', schema='MART_PERFORMANCE_ACADEMIQUE') }}
-
-with n as (select * from {{ ref('stg_note') }}),
-     taux as (
-         select id_module, annee_universitaire,
-             avg(case when resultat = 'Admis' then 1.0 else 0.0 end) as taux_reussite,
-             avg(case when resultat = 'Échec'  then 1.0 else 0.0 end) as taux_echec
-         from n group by id_module, annee_universitaire
-     )
-select
-    n.id_note, n.id_etudiant, n.id_module, n.annee_universitaire,
-    n.note, n.mention, n.session, n.resultat,
-    t.taux_reussite                                        as taux_reussite_module,
-    t.taux_echec                                           as taux_echec_module,
-    case when t.taux_echec > 0.30 then true else false end as is_module_a_risque
-from n
-left join taux t on n.id_module = t.id_module and n.annee_universitaire = t.annee_universitaire
-```
-
----
-
-**`mart_diplomation_insertion/fact_insertion.sql`** — calcule délai d'insertion et flag emploi à 6 mois :
-```sql
-{{ config(materialized='table', schema='MART_DIPLOMATION_INSERTION') }}
-
-select
-    id_insertion, id_etudiant, date_diplome, date_fin_etudes, date_premier_emploi,
-    salaire_embauche, secteur, type_poursuite,
-    datediff('day', date_diplome, date_premier_emploi)   as delai_insertion_jours,
-    datediff('month', date_fin_etudes, date_diplome)     as duree_etudes_mois,
-    case when datediff('day', date_diplome, date_premier_emploi) <= 180
-         then true else false end                        as is_emploi_6mois,
-    year(date_diplome)                                   as annee_diplome
-from {{ ref('stg_insertion_professionnelle') }}
-```
-
----
-
-**`mart_professeurs/fact_seance_cours.sql`** — calcule durée de séance, taux d'occupation salle et flag retard :
-```sql
-{{ config(materialized='table', schema='MART_PROFESSEURS') }}
-
-with seance as (select * from {{ ref('stg_seance_cours') }}),
-     salle  as (select * from {{ ref('stg_salle') }})
-select
-    s.id_seance, s.id_module, s.id_professeur, s.id_salle,
-    s.date_seance, s.effectuee, s.retard_minutes, s.nb_etudiants_presents,
-    datediff('hour', s.heure_debut::time, s.heure_fin::time)       as duree_seance_h,
-    s.nb_etudiants_presents::float / sa.capacite                   as taux_occupation_salle,
-    case when s.retard_minutes > 0 then true else false end         as is_en_retard
-from seance s
-left join salle sa on s.id_salle = sa.id_salle
-```
-
----
-
-**`mart_satisfaction/fact_satisfaction.sql`** — calcule le score professeur pondéré par les poids individuels :
-```sql
-{{ config(materialized='table', schema='MART_SATISFACTION') }}
-
-select
-    id_enquete, id_etudiant, id_professeur, id_module, annee_universitaire,
-    score_clarte, score_disponibilite, score_pedagogie, score_equite,
-    score_admin, score_vie_etudiante, score_charge, score_finances,
-    score_global, nps,
-    (score_clarte       * poids_clarte
-   + score_disponibilite * poids_disponibilite
-   + score_pedagogie    * poids_pedagogie
-   + score_equite       * poids_equite)                            as score_prof_pondere
-from {{ ref('stg_satisfaction_enquete') }}
-```
-
----
-
-**`mart_inscriptions/dim_date.sql`** — génère une table calendrier complète 2020-2030 avec année universitaire :
-```sql
-{{ config(materialized='table', schema='MART_INSCRIPTIONS') }}
-
-with spine as (
-    select dateadd('day', seq4(), '2020-01-01'::date) as date_day
-    from table(generator(rowcount => 4018))
-)
-select
-    cast(to_char(date_day, 'YYYYMMDD') as integer) as id_date,
-    date_day                                        as date_complete,
-    day(date_day)    as jour,
-    weekofyear(date_day) as semaine,
-    month(date_day)  as mois,
-    quarter(date_day) as trimestre,
-    year(date_day)   as annee,
-    case when month(date_day) >= 9
-         then concat(year(date_day),   '-', year(date_day)+1)
-         else concat(year(date_day)-1, '-', year(date_day))
-    end              as annee_universitaire
-from spine
-```
-
----
-
-**`mart_executive/kpi_summary.sql`** — table résumé des KPIs pour la page 0 du dashboard :
-```sql
-{{ config(materialized='table', schema='MART_EXECUTIVE') }}
-
-select
-    '2023-2024' as annee_universitaire,
-    3.8         as satisfaction_globale_ponderee,
-    0.75        as taux_emploi_6mois,
-    0.92        as taux_retention,
-    0.68        as taux_occupation_salles,
-    470000.0    as budget_execute_total,
-    7.2         as nps_etudiant
-```
-
-### Exécution dbt
-
-```bash
-source dbt_env/bin/activate
+```sh
 cd dw_ecole
-dbt debug --profiles-dir .   # vérifier la connexion Snowflake
-dbt run --profiles-dir .     # exécuter tous les modèles
-dbt test --profiles-dir .    # lancer les tests qualité
+dbt deps
+dbt run
+dbt test      # when tests are added
 ```
 
----
+`dbt deps` installs `dbt-labs/dbt_utils`. `dbt run` builds the 26 staging views first, then the
+fact and dimension tables in the mart schemas.
 
-## Étape 3 — Dashboard Power BI
+### 4. Connect Power BI
 
-### Connexion Snowflake
+Point Power BI Desktop at the `DW_ECOLE` database and the mart schemas. `docs/Schema_Source.md`
+and `docs/Tables_Schema_of_Marts.md` describe the columns available on each side.
 
-Dans Power BI Desktop → **Obtenir les données** → **Snowflake** :
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-| Paramètre | Valeur |
-|-----------|--------|
-| Serveur | `YFQOTUU-OX87105.snowflakecomputing.com` |
-| Entrepôt | `COMPUTE_WH` |
-| Base de données | `DW_ECOLE` |
-| Schéma | `STAGING_MART_*` (selon la page) |
+## Roadmap
 
-### Pages du dashboard
+- [x] Document the 27 source tables and the mart schemas
+- [x] Clean and profile the source workbook
+- [x] Load the CSV extracts into Snowflake `RAW`
+- [x] Build 26 dbt staging views
+- [x] Build the ten analytical marts
+- [ ] Commit the Power BI report, or document its data model and measures if it stays out of the repo
+- [ ] Move the Snowflake credentials out of `scripts/upload_to_snowflake.py` into environment variables
+- [ ] Fix the loader's CSV path so it reads `data/csv/` directly
+- [ ] Add dbt tests and a `profiles.yml.example`
+- [ ] Remove or clearly archive the older `dbt_files/` draft
 
-| Page | Schéma Snowflake | Sujet | KPIs principaux |
-|------|-----------------|-------|-----------------|
-| 0 | STAGING_MART_EXECUTIVE | Résumé exécutif | Satisfaction, NPS, taux diplomation, budget |
-| 1 | STAGING_MART_INSCRIPTIONS | Inscriptions | Effectif, taux abandon, répartition filières |
-| 2 | STAGING_MART_PERFORMANCE_ACADEMIQUE | Performance | GPA, taux réussite/échec, modules à risque |
-| 3 | STAGING_MART_DIPLOMATION_INSERTION | Insertion | Taux emploi 6 mois, délai insertion, salaire médian |
-| 4 | STAGING_MART_PROFESSEURS | Professeurs | Charge horaire, taux retard, satisfaction |
-| 5 | STAGING_MART_ADMINISTRATION | Administration | Délai traitement, résolution 1er contact |
-| 6 | STAGING_MART_CHARGE_TEMPORELLE | Charge étudiante | Heures/semaine, taux surcharge (>40h) |
-| 7 | STAGING_MART_VIE_ETUDIANTE | Vie étudiante | Absentéisme, clubs, mobilité internationale |
-| 8 | STAGING_MART_FINANCE | Finance | Budget exécuté, taux recouvrement frais |
-| 9 | STAGING_MART_SATISFACTION | Satisfaction | Score pondéré par levier, alertes automatiques |
+See the [open issues](https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi/issues) for a full list of proposed features (and known issues).
 
----
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Résumé des chiffres
+## Contributing
 
-| Couche | Objets | Détail |
-|--------|--------|--------|
-| RAW | 27 tables | ~21 000 lignes depuis Excel |
-| Staging | 26 vues | Données nettoyées et typées |
-| Marts | 45 tables | 10 data marts, star schema |
-| **Total Snowflake** | **98 objets** | |
-| Dashboard | 10 pages | ~25 KPIs |
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
----
+If you have a suggestion that would make this better, please fork the repo and create a pull request. You can also simply open an issue with the tag "enhancement".
+Don't forget to give the project a star! Thanks again!
 
-## Annexes
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-- `docs/Schema_Source.md` — schéma détaillé colonne par colonne des 27 tables sources
-- `docs/Tables_Schema_of_Marts.md` — schéma de chaque mart
-- `KPI_pages_Dashboard PowerBI.pdf` — maquettes visuelles du dashboard
+Keep model changes inside `dw_ecole/`, and update `docs/Tables_Schema_of_Marts.md` when a mart's
+columns change.
+
+### Top contributors:
+
+<a href="https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=Elouahabi-Naoufal/school-data-warehouse-powerbi" alt="contrib.rocks image" />
+</a>
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## License
+
+This project is not licensed — all rights reserved.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Contact
+
+Naoufal Elouahabi - [LinkedIn](https://www.linkedin.com/in/elouahabi-naoufal/) - elouahabi-naoufal1@gmail.com
+
+Project Link: [https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi](https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## Acknowledgments
+
+* [dbt Documentation](https://docs.getdbt.com/)
+* [Snowflake Documentation](https://docs.snowflake.com/)
+* [Power BI Documentation](https://learn.microsoft.com/power-bi/)
+* [pandas Documentation](https://pandas.pydata.org/docs/)
+* [Img Shields](https://shields.io)
+* [Choose an Open Source License](https://choosealicense.com)
+* [Best-README-Template](https://github.com/othneildrew/Best-README-Template)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+[contributors-shield]: https://img.shields.io/github/contributors/Elouahabi-Naoufal/school-data-warehouse-powerbi.svg?style=for-the-badge
+[contributors-url]: https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi/graphs/contributors
+[forks-shield]: https://img.shields.io/github/forks/Elouahabi-Naoufal/school-data-warehouse-powerbi.svg?style=for-the-badge
+[forks-url]: https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi/network/members
+[stars-shield]: https://img.shields.io/github/stars/Elouahabi-Naoufal/school-data-warehouse-powerbi.svg?style=for-the-badge
+[stars-url]: https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi/stargazers
+[issues-shield]: https://img.shields.io/github/issues/Elouahabi-Naoufal/school-data-warehouse-powerbi.svg?style=for-the-badge
+[issues-url]: https://github.com/Elouahabi-Naoufal/school-data-warehouse-powerbi/issues
+[linkedin-shield]: https://img.shields.io/badge/-LinkedIn-black.svg?style=for-the-badge&logo=linkedin&colorB=555
+[linkedin-url]: https://www.linkedin.com/in/elouahabi-naoufal/
+[Python-badge]: https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white
+[Python-url]: https://www.python.org/
+[Snowflake-badge]: https://img.shields.io/badge/Snowflake-29B5E8?style=for-the-badge&logo=snowflake&logoColor=white
+[Snowflake-url]: https://www.snowflake.com/
+[dbt-badge]: https://img.shields.io/badge/dbt-FF694B?style=for-the-badge&logo=dbt&logoColor=white
+[dbt-url]: https://www.getdbt.com/
+[PowerBI-badge]: https://img.shields.io/badge/Power%20BI-F2C811?style=for-the-badge&logo=powerbi&logoColor=black
+[PowerBI-url]: https://powerbi.microsoft.com/
+[pandas-badge]: https://img.shields.io/badge/pandas-150458?style=for-the-badge&logo=pandas&logoColor=white
+[pandas-url]: https://pandas.pydata.org/
+[Jupyter-badge]: https://img.shields.io/badge/Jupyter-F37626?style=for-the-badge&logo=jupyter&logoColor=white
+[Jupyter-url]: https://jupyter.org/
+[SQL-badge]: https://img.shields.io/badge/SQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white
+[SQL-url]: https://en.wikipedia.org/wiki/SQL
